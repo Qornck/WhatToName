@@ -1,0 +1,5 @@
+./save_models
+*.sh
+*.txt
+./__pycache__
+*.pyc

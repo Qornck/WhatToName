@@ -28,6 +28,14 @@ bpr = utils.BPRLoss(Recmodel, args)
 
 original_graph = torch.FloatTensor(dataset.UserItemNet.toarray()).to(device)
 
+def csr_equal_strict(mat1, mat2):
+    return (
+        (mat1.shape == mat2.shape) and
+        (np.array_equal(mat1.data, mat2.data)) and
+        (np.array_equal(mat1.indices, mat2.indices)) and
+        (np.array_equal(mat1.indptr, mat2.indptr))
+    )
+
 if args.mean_type == 'x0':
     mean_type = gd.ModelMeanType.START_X
 elif args.mean_type == 'eps':
@@ -41,7 +49,9 @@ diffusion = gd.GaussianDiffusion(mean_type, args.noise_schedule, \
 out_dims = eval(args.dims) + [dataset.n_apis]
 in_dims = out_dims[::-1]
 model = DNN(in_dims, out_dims, args.recdim, time_type="cat", norm=args.norm).to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.0)
+model1 = DNN(in_dims, out_dims, args.recdim, time_type="cat", norm=args.norm).to(device)
+optimizer1 = torch.optim.AdamW(model1.parameters(), lr=args.lr, weight_decay=0.0)
 
 best_results = {'precision': [0, 0, 0, 0],
                'recall': [0, 0, 0, 0],
@@ -70,17 +80,30 @@ try:
                 best_results['precision'][3] = results['precision'][3]
                 best_results['ndcg'][3] = results['ndcg'][3]
         diff_loss = diffusion.training_losses(model, original_graph, device, args.reweight)
+        diff_loss1 = diffusion.training_losses(model1, original_graph, device, args.reweight)
         with torch.no_grad():
             diffGraph = diffusion.p_sample(model, original_graph, args.sampling_steps, args.sampling_noise)
-            top_values, top_indices = torch.topk(diffGraph, k=10, dim=1)
-            diffGraph = torch.zeros_like(diffGraph).scatter_(1, top_indices, 1)
-            diffGraph = csr_matrix(diffGraph.cpu().numpy())
-        output_information = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch)
+            top_values, top_indices = torch.topk(diffGraph, k=args.reserve_nodes1, dim=1)
+            diffGraph1 = torch.zeros_like(diffGraph).scatter_(1, top_indices, 1)
+            diffGraph1 = csr_matrix(diffGraph1.cpu().numpy())
+
+            diffGraph = diffusion.p_sample(model1, original_graph, args.sampling_steps, args.sampling_noise)
+            top_values, top_indices = torch.topk(diffGraph, k=args.reserve_nodes2, dim=1)
+            diffGraph2 = torch.zeros_like(diffGraph).scatter_(1, top_indices, 1)
+            diffGraph2 = csr_matrix(diffGraph2.cpu().numpy())
+            # print(csr_equal_strict(diffGraph1, diffGraph2))
+        output_information = Procedure.BPR_train_original(dataset, Recmodel, bpr, diffGraph1, diffGraph2, epoch)
         optimizer.zero_grad()
-        diff_loss = diff_loss['loss'].mean()
+        optimizer1.zero_grad()
+        diff_loss = diff_loss['loss'].mean() + diff_loss1['loss'].mean()
         diff_loss.backward()
+        optimizer1.step()
         optimizer.step()
-        print(f'EPOCH[{epoch+1}/{args.epochs}] {output_information}')
-        # torch.save(Recmodel.state_dict(), weight_file)
+        print(f'EPOCH[{epoch+1}/{args.epochs}] {output_information} diff_loss: {diff_loss.item()}')
 finally:
+    recall_20 = best_results['recall'][2]
+    ndcg_20 = best_results['ndcg'][2]
+    recall_40 = best_results['recall'][3]
+    ndcg_40 = best_results['ndcg'][3]
+    torch.save(Recmodel.state_dict(), f"./save_model/Recmodel_{recall_20:.4f}_{ndcg_20:.4f}_{recall_40:.4f}_{ndcg_40:.4f}_{args.bpr_batch}_{args.recdim}_{args.layer}_{args.lr}_{args.ssl_temp}_{args.ssl_weight}_{args.mean_type}_{args.reserve_nodes1}_{args.reserve_nodes2}.pth")
     cprint(best_results)

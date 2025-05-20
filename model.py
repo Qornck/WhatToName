@@ -48,57 +48,16 @@ class LightGCN(nn.Module):
         api_api_emb = self.embedding_api_api.weight
         for layer in range(self.n_layers):
             all_emb = torch.sparse.mm(graph, all_emb)
-            mashupmashup_embs = torch.sparse.mm(self.mmGraph, mashup_mashup_emb)
+            # mashupmashup_embs = torch.sparse.mm(self.mmGraph, mashup_mashup_emb)
             # apiapi_embs = torch.sparse.mm(self.aaGraph, api_api_emb)
             # mashup_embs, api_embs = torch.split(all_emb, [self.num_mashups, self.num_apis])
             # mashup_embs = (mashup_embs + mashupmashup_embs) / 2.0
             # api_embs = (api_embs + apiapi_embs) / 2.0
             # all_emb = torch.cat([mashup_embs, api_embs])
-            # all_embs.append(all_emb)
+            all_embs.append(all_emb)
         all_embs = torch.stack(all_embs, dim=1).mean(dim=1)
         return all_emb
 
-    # def computer(self):
-    #     mashups_emb = self.embedding_mashup.weight
-    #     api_emb = self.embedding_api.weight
-    #     all_emb = torch.cat([mashups_emb, api_emb])
-    #     mashup_mashup_emb = self.embedding_mashup_mashup.weight
-    #     api_api_emb = self.embedding_api_api.weight
-    #     embs = [all_emb]
-    #     aug_embs = [all_emb]
-    #     embs0 = [all_emb]
-    #     mm_embs = [mashup_mashup_emb]
-    #     aa_embs = [api_api_emb]
-    #     g_droped = self.Graph
-    #     aug_graph = self.augGraph
-    #     aa_graph = self.aaGraph
-    #     mm_graph = self.mmGraph
-        
-    #     for layer in range(self.n_layers):
-    #         all_emb = torch.sparse.mm(g_droped, all_emb)
-    #         mashup_embs, api_embs = torch.split(all_emb, [self.num_mashups, self.num_apis])
-    #         aug_all_emb = torch.sparse.mm(aug_graph, all_emb)
-    #         aug_mashup_embs, aug_api_embs = torch.split(aug_all_emb, [self.num_mashups, self.num_apis])
-    #         mashup_mashup_emb = torch.sparse.mm(mm_graph, mashup_mashup_emb)
-    #         api_api_emb = torch.sparse.mm(aa_graph, api_api_emb)
-
-    #         mashup_embs = (2 * mashup_embs + mashup_mashup_emb) / 3.0
-    #         aug_mashup_embs = (2 * aug_mashup_embs + mashup_mashup_emb) / 3.0
-    #         api_embs = (2 * api_embs + api_api_emb) / 2.0
-    #         aug_api_embs = (2 * aug_api_embs + api_api_emb) / 3.0
-    #         all_emb = torch.cat([mashup_embs, api_embs])
-    #         aug_all_emb = torch.cat([aug_mashup_embs, aug_api_embs])
-
-    #         embs.append(all_emb)
-    #         aug_embs.append(aug_all_emb)
-    #     light_out = torch.stack(embs, dim=1).mean(dim=1)
-    #     aug_light_out = torch.stack(aug_embs, dim=1).mean(dim=1)
-    #     aa_embs = torch.stack(aa_embs, dim=1).mean(dim=1)
-    #     mm_embs = torch.stack(mm_embs, dim=1).mean(dim=1)
-    #     mashups, apis = torch.split(light_out, [self.num_mashups, self.num_apis])
-    #     aug_mashups, aug_apis = torch.split(aug_light_out, [self.num_mashups, self.num_apis])
-    #     return mashups, apis, aug_mashups, aug_apis, aa_embs, mm_embs
-    
     def getUsersRating(self, mashups):
         all_embs = self.forward_gcn(self.Graph)
         mashup_embs, api_embs = torch.split(all_embs, [self.num_mashups, self.num_apis])
@@ -119,10 +78,12 @@ class LightGCN(nn.Module):
         ssl_loss  = (-torch.sum(torch.log(pos_score / ((all_score))))/(len(index)))
         return ssl_loss
     
-    def forward(self, mashups, pos_apis, neg_apis):
+    def forward(self, mashups, pos_apis, neg_apis, aug_graph1, aug_graph2, recompute):
         all_embs = self.forward_gcn(self.Graph)
-        all_aug_embs1 = self.forward_gcn(self.augGraph1)
-        all_aug_embs2 = self.forward_gcn(self.augGraph2)
+        diff_graph1 = self.dataset.getDiffSparseGraph(aug_graph1, recompute)
+        diff_graph2 = self.dataset.getDiffSparseGraph(aug_graph2, recompute)
+        all_aug_embs1 = self.forward_gcn(diff_graph1)
+        all_aug_embs2 = self.forward_gcn(diff_graph2)
 
         mashup_embs, api_embs = torch.split(all_embs, [self.num_mashups, self.num_apis])
         mashup_embs1, api_embs1 = torch.split(all_aug_embs1, [self.num_mashups, self.num_apis])
