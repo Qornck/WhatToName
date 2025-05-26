@@ -1,4 +1,4 @@
-./save_models
+./save_model
 *.sh
 *.txt
 ./__pycache__
