@@ -2,7 +2,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Go lightGCN")
-    parser.add_argument('--bpr_batch', type=int,default=64,
+    parser.add_argument('--bpr_batch', type=int,default=256,
                         help="the batch size for bpr loss training procedure")
     parser.add_argument('--recdim', type=int,default=64,
                         help="the embedding size of lightGCN")
@@ -34,10 +34,10 @@ def parse_args():
     parser.add_argument('--epochs', type=int,default=401)
     parser.add_argument('--multicore', type=int, default=0, help='whether we use multiprocessing or not in test')
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
-    parser.add_argument('--seed', type=int, default=2153, help='random seed')
+    parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
     parser.add_argument('--ssl_temp', type=float, default=0.1, help='temperature for ssl loss')
-    parser.add_argument('--ssl_weight', type=float, default=0.14, help='weight for ssl loss')
+    parser.add_argument('--ssl_weight', type=float, default=0.12, help='weight for ssl loss')
 
     parser.add_argument('--norm', type=bool, default=False, help='Normalize the input or not')
     parser.add_argument('--dims', type=str, default='[1000]', help='the dims for the DNN')
@@ -51,6 +51,6 @@ def parse_args():
     parser.add_argument('--sampling_steps', type=int, default=0, help='steps of the forward process during inference')
     parser.add_argument('--reweight', type=bool, default=True, help='assign different weight to different timestep or not')
 
-    parser.add_argument('--reserve_nodes1', type=int, default=5, help='the number of reserve nodes for the first diffusion')
-    parser.add_argument('--reserve_nodes2', type=int, default=5, help='the number of reserve nodes for the second diffusion')
+    parser.add_argument('--reserve_nodes1', type=int, default=6, help='the number of reserve nodes for the first diffusion')
+    parser.add_argument('--reserve_nodes2', type=int, default=6, help='the number of reserve nodes for the second diffusion')
     return parser.parse_args()

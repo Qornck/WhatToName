@@ -81,9 +81,12 @@ class LightGCN(nn.Module):
     def forward(self, mashups, pos_apis, neg_apis, aug_graph1, aug_graph2, recompute):
         all_embs = self.forward_gcn(self.Graph)
         diff_graph1 = self.dataset.getDiffSparseGraph(aug_graph1, recompute)
-        diff_graph2 = self.dataset.getDiffSparseGraph(aug_graph2, recompute)
         all_aug_embs1 = self.forward_gcn(diff_graph1)
-        all_aug_embs2 = self.forward_gcn(diff_graph2)
+        if aug_graph2 != None:
+            diff_graph2 = self.dataset.getDiffSparseGraph(aug_graph2, recompute)
+            all_aug_embs2 = self.forward_gcn(diff_graph2)
+        else:
+            all_aug_embs2 = all_embs
 
         mashup_embs, api_embs = torch.split(all_embs, [self.num_mashups, self.num_apis])
         mashup_embs1, api_embs1 = torch.split(all_aug_embs1, [self.num_mashups, self.num_apis])
@@ -102,12 +105,12 @@ class LightGCN(nn.Module):
                          api_embeddings.norm(2).pow(2)  +
                          neg_embeddings.norm(2).pow(2))/float(len(mashups))
         
-        mashup_embs = F.normalize(mashup_embs, p = 2, dim=1)
-        api_embs = F.normalize(api_embs, p = 2, dim=1)
-        mashup_embs1 = F.normalize(mashup_embs1, p = 2, dim=1)
-        api_embs1 = F.normalize(api_embs1, p = 2, dim=1)
-        mashup_embs2 = F.normalize(mashup_embs2, p = 2, dim=1)
-        api_embs2 = F.normalize(api_embs2, p = 2, dim=1)
+        # mashup_embs = F.normalize(mashup_embs, p = 2, dim=1)
+        # api_embs = F.normalize(api_embs, p = 2, dim=1)
+        # mashup_embs1 = F.normalize(mashup_embs1, p = 2, dim=1)
+        # api_embs1 = F.normalize(api_embs1, p = 2, dim=1)
+        # mashup_embs2 = F.normalize(mashup_embs2, p = 2, dim=1)
+        # api_embs2 = F.normalize(api_embs2, p = 2, dim=1)
         
         ssl_mashups = self.ssl_loss(mashup_embs1, mashup_embs2, mashups)
         ssl_apis = self.ssl_loss(api_embs1, api_embs2, pos_apis)
