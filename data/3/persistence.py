@@ -1,7 +1,7 @@
 import numpy as np
 
 interactions = []
-with open("./mashup_co_category.txt", "r") as f:
+with open("./api_co_category.txt", "r") as f:
     lines = f.readlines()
     for line in lines:
         line = line.strip().split(" ", 1)
@@ -15,7 +15,7 @@ print(len(interactions))
 
 # 从interactions中随机sample5000个
 import random
-sampled_interactions = random.sample(interactions, 30000)
+sampled_interactions = interactions
 api_count = np.zeros(1837)
 for i, interaction in enumerate(sampled_interactions):
     api1, api2 = list(interaction)
@@ -34,8 +34,14 @@ for i in zero_indices:
 
 print(len(sampled_interactions))
 
-with open("simplified_mashup_co_category.txt", "w") as f:
+# with open("simplified_mashup_co_category.txt", "w") as f:
+#     for interaction in sampled_interactions:
+#         api1, api2 = list(interaction)
+#         f.write(f"{api1} {api2}\n")
+
+with open("api_co_category.txt", "w") as f:
     for interaction in sampled_interactions:
         api1, api2 = list(interaction)
         f.write(f"{api1} {api2}\n")
+
 

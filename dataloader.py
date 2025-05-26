@@ -118,6 +118,9 @@ class Loader(Dataset):
         
         self.coItem1 = np.array(coItem1)
         self.coItem2 = np.array(coItem2)
+        # randidx = randint_choice(len(coItem1), 5000, replace=False)
+        # self.coItem1 = self.coItem1[randidx]
+        # self.coItem2 = self.coItem2[randidx]
 
         with open(co_mmfile) as f:
             for l in f.readlines():
@@ -125,9 +128,14 @@ class Loader(Dataset):
                     l = l.strip('\n').split(' ', 1)
                     coMashup1.append(int(l[0]))
                     coMashup2.append(int(l[1]))
+                    coMashup1.append(int(l[1]))
+                    coMashup2.append(int(l[0]))
         
+        randidx = randint_choice(len(coMashup1), 30000, replace=False)
         self.coMashup1 = np.array(coMashup1)
         self.coMashup2 = np.array(coMashup2)
+        # self.coMashup1 = self.coMashup1[randidx]
+        # self.coMashup2 = self.coMashup2[randidx]
 
         self.Graph = None
         self.aaGraph = None
@@ -258,8 +266,8 @@ class Loader(Dataset):
             aaR = self.CoItemNet.tolil()
             adj_mat[:self.n_mashups, self.n_mashups:] = R
             adj_mat[self.n_mashups:, :self.n_mashups] = R.T
-            adj_mat[:self.n_mashups, :self.n_mashups] = mmR
-            adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+            # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+            # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
             adj_mat = adj_mat.todok()
 
             rowsum = np.array(adj_mat.sum(axis=1))
@@ -277,60 +285,60 @@ class Loader(Dataset):
 
     def getSparseGraph_aa(self):
         if self.aaGraph is None:
-            try:
-                pre_adj_mat = sp.load_npz(self.path + '/s_pre_adj_mat_aa.npz')
-                print("successfully loaded aa graph...")
-                norm_adj = pre_adj_mat
-            except:
-                print("generating adjacency matrix")
-                s = time()
-                adj_mat = sp.dok_matrix((self.n_apis, self.n_apis), dtype=np.float32)
-                adj_mat = adj_mat.tolil()
-                R = self.CoItemNet.tolil()
-                print(R.shape)
-                print(adj_mat.shape)
-                adj_mat[:self.n_apis, :self.n_apis] = R
-                adj_mat = adj_mat.todok()
+            # try:
+            #     pre_adj_mat = sp.load_npz(self.path + '/s_pre_adj_mat_aa.npz')
+            #     print("successfully loaded aa graph...")
+            #     norm_adj = pre_adj_mat
+            # except:
+            print("generating adjacency matrix")
+            s = time()
+            adj_mat = sp.dok_matrix((self.n_apis, self.n_apis), dtype=np.float32)
+            adj_mat = adj_mat.tolil()
+            R = self.CoItemNet.tolil()
+            # print(R.shape)
+            # print(adj_mat.shape)
+            adj_mat[:self.n_apis, :self.n_apis] = R
+            adj_mat = adj_mat.todok()
 
-                rowsum = np.array(adj_mat.sum(axis=1))
-                d_inv = np.power(rowsum, -1).flatten()
-                d_inv[np.isinf(d_inv)] = 0.
-                d_mat = sp.diags(d_inv)
+            rowsum = np.array(adj_mat.sum(axis=1))
+            d_inv = np.power(rowsum, -1).flatten()
+            d_inv[np.isinf(d_inv)] = 0.
+            d_mat = sp.diags(d_inv)
 
-                norm_adj = d_mat.dot(adj_mat)
-                norm_adj = norm_adj.dot(d_mat)
-                norm_adj = norm_adj.tocsr()
+            norm_adj = d_mat.dot(adj_mat)
+            norm_adj = norm_adj.dot(d_mat)
+            norm_adj = norm_adj.tocsr()
 
-                sp.save_npz(self.path + '/s_pre_adj_mat_aa.npz', norm_adj)
+            # sp.save_npz(self.path + '/s_pre_adj_mat_aa.npz', norm_adj)
             self.aaGraph = self._convert_sp_mat_to_sp_tensor(norm_adj)
             self.aaGraph = self.aaGraph.coalesce().to("cuda")
         return self.aaGraph
     
     def getSparseGraph_mm(self):
         if self.mmGraph is None:
-            try:
-                pre_adj_mat = sp.load_npz(self.path + '/s_pre_adj_mat_mm.npz')
-                print("successfully loaded mm graph...")
-                norm_adj = pre_adj_mat
-            except:
-                print("generating adjacency matrix")
-                s = time()
-                adj_mat = sp.dok_matrix((self.n_mashups, self.n_mashups), dtype=np.float32)
-                adj_mat = adj_mat.tolil()
-                R = self.CoMashupNet.tolil()
-                adj_mat[:self.n_mashups, :self.n_mashups] = R
-                adj_mat = adj_mat.todok()
+            # try:
+            #     pre_adj_mat = sp.load_npz(self.path + '/s_pre_adj_mat_mm.npz')
+            #     print("successfully loaded mm graph...")
+            #     norm_adj = pre_adj_mat
+            # except:
+            print("generating adjacency matrix")
+            s = time()
+            adj_mat = sp.dok_matrix((self.n_mashups, self.n_mashups), dtype=np.float32)
+            adj_mat = adj_mat.tolil()
+            R = self.CoMashupNet.tolil()
+            adj_mat[:self.n_mashups, :self.n_mashups] = R
+            adj_mat = adj_mat.todok()
 
-                rowsum = np.array(adj_mat.sum(axis=1))
-                d_inv = np.power(rowsum, -1).flatten()
-                d_inv[np.isinf(d_inv)] = 0.
-                d_mat = sp.diags(d_inv)
+            rowsum = np.array(adj_mat.sum(axis=1))
+            d_inv = np.power(rowsum, -1).flatten()
+            d_inv[np.isinf(d_inv)] = 0.
+            d_mat = sp.diags(d_inv)
 
-                norm_adj = d_mat.dot(adj_mat)
-                norm_adj = norm_adj.dot(d_mat)
-                norm_adj = norm_adj.tocsr()
+            norm_adj = d_mat.dot(adj_mat)
+            norm_adj = norm_adj.dot(d_mat)
+            norm_adj = norm_adj.tocsr()
 
-                sp.save_npz(self.path + '/s_pre_adj_mat_mm.npz', norm_adj)      
+            # sp.save_npz(self.path + '/s_pre_adj_mat_mm.npz', norm_adj)      
             self.mmGraph = self._convert_sp_mat_to_sp_tensor(norm_adj)
             self.mmGraph = self.mmGraph.coalesce().to("cuda")
         return self.mmGraph          
