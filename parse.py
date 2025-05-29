@@ -2,7 +2,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Go lightGCN")
-    parser.add_argument('--bpr_batch', type=int,default=256,
+    parser.add_argument('--bpr_batch', type=int,default=64,
                         help="the batch size for bpr loss training procedure")
     parser.add_argument('--recdim', type=int,default=64,
                         help="the embedding size of lightGCN")
@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
     parser.add_argument('--ssl_temp', type=float, default=0.1, help='temperature for ssl loss')
-    parser.add_argument('--ssl_weight', type=float, default=0.12, help='weight for ssl loss')
+    parser.add_argument('--ssl_weight', type=float, default=0.11, help='weight for ssl loss')
 
     parser.add_argument('--norm', type=bool, default=False, help='Normalize the input or not')
     parser.add_argument('--dims', type=str, default='[1000]', help='the dims for the DNN')
