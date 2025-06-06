@@ -243,6 +243,7 @@ class Loader(Dataset):
         # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
         # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
         adj_mat = adj_mat.todok()
+        adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
         rowsum = np.array(adj_mat.sum(axis=1))
         d_inv = np.power(rowsum, -0.5).flatten()
@@ -269,6 +270,7 @@ class Loader(Dataset):
             # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
             # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
             adj_mat = adj_mat.todok()
+            # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
             rowsum = np.array(adj_mat.sum(axis=1))
             d_inv = np.power(rowsum, -0.5).flatten()

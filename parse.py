@@ -8,7 +8,7 @@ def parse_args():
                         help="the embedding size of lightGCN")
     parser.add_argument('--layer', type=int,default=3,
                         help="the layer num of lightGCN")
-    parser.add_argument('--lr', type=float,default=0.001,
+    parser.add_argument('--lr', type=float,default=0.0008,
                         help="the learning rate")
     parser.add_argument('--decay', type=float,default=1e-4,
                         help="the weight decay for l2 normalizaton")
@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
     parser.add_argument('--ssl_temp', type=float, default=0.1, help='temperature for ssl loss')
-    parser.add_argument('--ssl_weight', type=float, default=0.11, help='weight for ssl loss')
+    parser.add_argument('--ssl_weight', type=float, default=0.13, help='weight for ssl loss')
 
     parser.add_argument('--norm', type=bool, default=False, help='Normalize the input or not')
     parser.add_argument('--dims', type=str, default='[1000]', help='the dims for the DNN')
@@ -50,6 +50,7 @@ def parse_args():
     parser.add_argument('--sampling_noise', type=bool, default=False, help='sampling with noise or not')
     parser.add_argument('--sampling_steps', type=int, default=0, help='steps of the forward process during inference')
     parser.add_argument('--reweight', type=bool, default=True, help='assign different weight to different timestep or not')
+    parser.add_argument('--diff_lr', type=float,default=0.002,help="the learning rate")
 
     parser.add_argument('--reserve_nodes1', type=int, default=6, help='the number of reserve nodes for the first diffusion')
     parser.add_argument('--reserve_nodes2', type=int, default=6, help='the number of reserve nodes for the second diffusion')

@@ -49,9 +49,9 @@ diffusion = gd.GaussianDiffusion(mean_type, args.noise_schedule, \
 out_dims = eval(args.dims) + [dataset.n_apis]
 in_dims = out_dims[::-1]
 model = DNN(in_dims, out_dims, args.recdim, time_type="cat", norm=args.norm).to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.0)
+optimizer = torch.optim.AdamW(model.parameters(), lr=args.diff_lr, weight_decay=0.0)
 model1 = DNN(in_dims, out_dims, args.recdim, time_type="cat", norm=args.norm).to(device)
-optimizer1 = torch.optim.AdamW(model1.parameters(), lr=args.lr, weight_decay=0.0)
+optimizer1 = torch.optim.AdamW(model1.parameters(), lr=args.diff_lr, weight_decay=0.0)
 
 best_results = {'precision': [0, 0, 0, 0],
                'recall': [0, 0, 0, 0],

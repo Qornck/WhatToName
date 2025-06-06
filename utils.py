@@ -31,7 +31,6 @@ class BPRLoss:
         bpr_loss = bpr_loss + reg_loss
 
         loss = bpr_loss + ssl_mashups * self.args.ssl_weight + ssl_apis * self.args.ssl_weight
-        # loss = bpr_loss
 
         self.opt.zero_grad()
         loss.backward()
