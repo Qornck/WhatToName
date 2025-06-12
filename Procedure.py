@@ -14,7 +14,7 @@ from gaussian_diffusion import GaussianDiffusion as gd
 
 args = parse_args()
 
-def BPR_train_original(dataset, recommend_model, loss_class, aug_graph1, aug_graph2, epoch, neg_k=1):
+def BPR_train_original(dataset, recommend_model, diffGraph, diffGraph1, loss_class, neg_k=1):
     Recmodel = recommend_model
     Recmodel.train()
     bpr: utils.BPRLoss = loss_class
@@ -26,7 +26,7 @@ def BPR_train_original(dataset, recommend_model, loss_class, aug_graph1, aug_gra
         batch_users = batch_users.to("cuda")
         batch_pos = batch_pos.to("cuda")
         batch_neg = batch_neg.to("cuda")
-        cri = bpr.stageOne(batch_users, batch_pos, batch_neg, aug_graph1, aug_graph2, batch_i == 0)
+        cri = bpr.stageOne(batch_users, batch_pos, batch_neg, diffGraph, diffGraph1)
         aver_loss += cri
     aver_loss = aver_loss / len(dataloader)
     return f"loss{aver_loss:.3f}"

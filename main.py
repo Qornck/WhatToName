@@ -22,11 +22,23 @@ args = parse_args()
 print(">>SEED:", args.seed)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def set_seed(seed):
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+set_seed(args.seed)
+
 dataset = Loader()
 Recmodel = LightGCN(args=args, dataset=dataset).cuda()
 bpr = utils.BPRLoss(Recmodel, args)
 
 original_graph = torch.FloatTensor(dataset.UserItemNet.toarray()).to(device)
+# print(original_graph.shape)
+# print(type(original_graph))
 
 def csr_equal_strict(mat1, mat2):
     return (
@@ -43,8 +55,7 @@ elif args.mean_type == 'eps':
 else:
     raise ValueError("Unimplemented mean type %s" % args.mean_type)
 
-diffusion = gd.GaussianDiffusion(mean_type, args.noise_schedule, \
-        args.noise_scale, args.noise_min, args.noise_max, args.steps, device).to(device)
+diffusion = gd.GaussianDiffusion(mean_type, args.noise_schedule, args.noise_scale, args.noise_min, args.noise_max, args.steps, device).to(device)
 
 out_dims = eval(args.dims) + [dataset.n_apis]
 in_dims = out_dims[::-1]
@@ -84,26 +95,27 @@ try:
         with torch.no_grad():
             diffGraph = diffusion.p_sample(model, original_graph, args.sampling_steps, args.sampling_noise)
             top_values, top_indices = torch.topk(diffGraph, k=args.reserve_nodes1, dim=1)
-            diffGraph1 = torch.zeros_like(diffGraph).scatter_(1, top_indices, 1)
-            diffGraph1 = csr_matrix(diffGraph1.cpu().numpy())
+            diffGraph = torch.zeros_like(diffGraph).scatter_(1, top_indices, 1)
+            diffGraph = torch.max(diffGraph, original_graph)
+            diffGraph = csr_matrix(diffGraph.cpu().numpy())
 
-            diffGraph = diffusion.p_sample(model1, original_graph, args.sampling_steps, args.sampling_noise)
-            top_values, top_indices = torch.topk(diffGraph, k=args.reserve_nodes2, dim=1)
-            diffGraph2 = torch.zeros_like(diffGraph).scatter_(1, top_indices, 1)
-            diffGraph2 = csr_matrix(diffGraph2.cpu().numpy())
-            # print(csr_equal_strict(diffGraph1, diffGraph2))
-        output_information = Procedure.BPR_train_original(dataset, Recmodel, bpr, diffGraph1, diffGraph2, epoch)
+            diffGraph1 = diffusion.p_sample(model1, original_graph, args.sampling_steps, args.sampling_noise)
+            top_values1, top_indices1 = torch.topk(diffGraph1, k=args.reserve_nodes2, dim=1)
+            diffGraph1 = torch.zeros_like(diffGraph1).scatter_(1, top_indices1, 1)
+            diffGraph1 = torch.max(diffGraph1, original_graph)
+            diffGraph1 = csr_matrix(diffGraph1.cpu().numpy())
+        output_information = Procedure.BPR_train_original(dataset, Recmodel, diffGraph, diffGraph1, bpr)
         optimizer.zero_grad()
         optimizer1.zero_grad()
         diff_loss = diff_loss['loss'].mean() + diff_loss1['loss'].mean()
         diff_loss.backward()
-        optimizer1.step()
         optimizer.step()
-        print(f'EPOCH[{epoch+1}/{args.epochs}] {output_information} diff_loss: {diff_loss.item()}')
+        optimizer1.step()
+        print(f'EPOCH[{epoch+1}/{args.epochs}] {output_information} diff_loss {diff_loss}')
 finally:
     recall_20 = best_results['recall'][2]
     ndcg_20 = best_results['ndcg'][2]
     recall_40 = best_results['recall'][3]
     ndcg_40 = best_results['ndcg'][3]
-    torch.save(Recmodel.state_dict(), f"./save_model/Recmodel_{recall_20:.4f}_{ndcg_20:.4f}_{recall_40:.4f}_{ndcg_40:.4f}_{args.bpr_batch}_{args.recdim}_{args.layer}_{args.lr}_{args.ssl_temp}_{args.ssl_weight}_{args.mean_type}_{args.reserve_nodes1}_{args.reserve_nodes2}.pth")
+    torch.save(Recmodel.state_dict(), f"./save_model/Recmodel_{recall_20:.4f}_{ndcg_20:.4f}_{recall_40:.4f}_{ndcg_40:.4f}_{args.bpr_batch}_{args.recdim}_{args.layer}_{args.lr}_{args.ssl_temp}_{args.ssl_weight}_{args.mean_type}_{args.reserve_nodes1}_{args.reserve_nodes2}_{args.seed}.pth")
     cprint(best_results)

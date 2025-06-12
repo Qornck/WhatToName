@@ -2,13 +2,13 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Go lightGCN")
-    parser.add_argument('--bpr_batch', type=int,default=64,
+    parser.add_argument('--bpr_batch', type=int,default=512,
                         help="the batch size for bpr loss training procedure")
     parser.add_argument('--recdim', type=int,default=64,
                         help="the embedding size of lightGCN")
     parser.add_argument('--layer', type=int,default=3,
                         help="the layer num of lightGCN")
-    parser.add_argument('--lr', type=float,default=0.0008,
+    parser.add_argument('--lr', type=float,default=0.001,
                         help="the learning rate")
     parser.add_argument('--decay', type=float,default=1e-4,
                         help="the weight decay for l2 normalizaton")
@@ -31,13 +31,13 @@ def parse_args():
     parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--comment', type=str,default="lgn")
     parser.add_argument('--load', type=int,default=0)
-    parser.add_argument('--epochs', type=int,default=401)
-    parser.add_argument('--multicore', type=int, default=0, help='whether we use multiprocessing or not in test')
+    parser.add_argument('--epochs', type=int,default=201)
+    parser.add_argument('--multicore', type=int, default=0, help='whether we use multiprocessing or not in test')   
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
-    parser.add_argument('--seed', type=int, default=42, help='random seed')
+    parser.add_argument('--seed', type=int, default=2021, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
     parser.add_argument('--ssl_temp', type=float, default=0.1, help='temperature for ssl loss')
-    parser.add_argument('--ssl_weight', type=float, default=0.13, help='weight for ssl loss')
+    parser.add_argument('--ssl_weight', type=float, default=0.1, help='weight for ssl loss')
 
     parser.add_argument('--norm', type=bool, default=False, help='Normalize the input or not')
     parser.add_argument('--dims', type=str, default='[1000]', help='the dims for the DNN')

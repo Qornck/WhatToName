@@ -243,7 +243,7 @@ class Loader(Dataset):
         # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
         # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
         adj_mat = adj_mat.todok()
-        adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
+        # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
         rowsum = np.array(adj_mat.sum(axis=1))
         d_inv = np.power(rowsum, -0.5).flatten()
@@ -258,31 +258,30 @@ class Loader(Dataset):
         aug_graph = aug_graph.coalesce().to("cuda")
         return aug_graph
     
-    def getDiffSparseGraph(self, aug_graph, recompute):
-        if recompute:
-            adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
-            adj_mat = adj_mat.tolil()
-            R = aug_graph.tolil()
-            mmR = self.CoMashupNet.tolil()
-            aaR = self.CoItemNet.tolil()
-            adj_mat[:self.n_mashups, self.n_mashups:] = R
-            adj_mat[self.n_mashups:, :self.n_mashups] = R.T
-            # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
-            # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
-            adj_mat = adj_mat.todok()
-            # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
+    def getDiffSparseGraph(self, aug_graph):
+        adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
+        adj_mat = adj_mat.tolil()
+        R = aug_graph.tolil()
+        mmR = self.CoMashupNet.tolil()
+        aaR = self.CoItemNet.tolil()
+        adj_mat[:self.n_mashups, self.n_mashups:] = R
+        adj_mat[self.n_mashups:, :self.n_mashups] = R.T
+        # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+        # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+        adj_mat = adj_mat.todok()
+        # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
-            rowsum = np.array(adj_mat.sum(axis=1))
-            d_inv = np.power(rowsum, -0.5).flatten()
-            d_inv[np.isinf(d_inv)] = 0.
-            d_mat = sp.diags(d_inv)
+        rowsum = np.array(adj_mat.sum(axis=1))
+        d_inv = np.power(rowsum, -0.5).flatten()
+        d_inv[np.isinf(d_inv)] = 0.
+        d_mat = sp.diags(d_inv)
 
-            norm_adj = d_mat.dot(adj_mat)
-            norm_adj = norm_adj.dot(d_mat)
-            norm_adj = norm_adj.tocsr()
+        norm_adj = d_mat.dot(adj_mat)
+        norm_adj = norm_adj.dot(d_mat)
+        norm_adj = norm_adj.tocsr()
 
-            self.DiffGraph = self._convert_sp_mat_to_sp_tensor(norm_adj)
-            self.DiffGraph = self.DiffGraph.coalesce().to("cuda")
+        self.DiffGraph = self._convert_sp_mat_to_sp_tensor(norm_adj)
+        self.DiffGraph = self.DiffGraph.coalesce().to("cuda")
         return self.DiffGraph
 
     def getSparseGraph_aa(self):
@@ -303,7 +302,7 @@ class Loader(Dataset):
             adj_mat = adj_mat.todok()
 
             rowsum = np.array(adj_mat.sum(axis=1))
-            d_inv = np.power(rowsum, -1).flatten()
+            d_inv = np.power(rowsum, -0.5).flatten()
             d_inv[np.isinf(d_inv)] = 0.
             d_mat = sp.diags(d_inv)
 
@@ -332,7 +331,7 @@ class Loader(Dataset):
             adj_mat = adj_mat.todok()
 
             rowsum = np.array(adj_mat.sum(axis=1))
-            d_inv = np.power(rowsum, -1).flatten()
+            d_inv = np.power(rowsum, -0.5).flatten()
             d_inv[np.isinf(d_inv)] = 0.
             d_mat = sp.diags(d_inv)
 
