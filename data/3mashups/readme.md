@@ -1,0 +1,1 @@
+This folder contains datasets in which every mashup is associated with more than three interactions.
