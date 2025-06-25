@@ -36,7 +36,7 @@ dataset = Loader()
 Recmodel = LightGCN(args=args, dataset=dataset).cuda()
 bpr = utils.BPRLoss(Recmodel, args)
 
-original_graph = torch.FloatTensor(dataset.UserItemNet.toarray()).to(device)
+original_graph = torch.FloatTensor(dataset.MashupApiNet.toarray()).to(device)
 # print(original_graph.shape)
 # print(type(original_graph))
 

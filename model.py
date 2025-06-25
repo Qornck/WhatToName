@@ -42,6 +42,8 @@ class LightGCN(nn.Module):
         self.mmGraph = self.dataset.getSparseGraph_mm()
         self.augGraph1 = self.dataset.getAugSparseGraph()
         self.augGraph2 = self.dataset.getAugSparseGraph()
+        self.diffGraph1 = None
+        self.diffGraph2 = None
 
     def forward_gcn(self, graph):
         all_emb = torch.cat([self.embedding_mashup.weight, self.embedding_api.weight])
@@ -64,7 +66,6 @@ class LightGCN(nn.Module):
         all_embs = torch.stack(all_embs, dim=1).mean(dim=1)
         mashup_embs = torch.stack(mashup_mashup_embs, dim=1).mean(dim=1)
         api_embs = torch.stack(api_api_embs, dim=1).mean(dim=1)
-        # all_embs = F.normalize(all_embs, p=2, dim=1)
         return all_embs, mashup_embs, api_embs
     
     def forward_gcn_(self, graph):
@@ -72,12 +73,13 @@ class LightGCN(nn.Module):
         all_embs = [all_emb]
         for layer in range(self.n_layers):
             all_emb = torch.sparse.mm(graph, all_emb)
+            isNan = torch.isnan(all_emb).any()
             all_embs.append(all_emb)
         all_embs = torch.stack(all_embs, dim=1).mean(dim=1)
         return all_embs
 
     def getUsersRating(self, mashups):
-        all_embs = self.forward_gcn_(self.Graph)
+        all_embs,_,_ = self.forward_gcn(self.Graph)
         mashup_embs, api_embs = torch.split(all_embs, [self.num_mashups, self.num_apis])
         mashup_embs = F.embedding(mashups, mashup_embs)
         ratings = torch.matmul(mashup_embs, api_embs.T)
@@ -95,16 +97,11 @@ class LightGCN(nn.Module):
         return ssl_loss
     
     def forward(self, mashups, pos_apis, neg_apis, diffGraph, diffGraph1):
-        all_embs  = self.forward_gcn_(self.Graph)
+        all_embs,_,_ = self.forward_gcn(self.Graph)
         diffGraph = self.dataset.getDiffSparseGraph(diffGraph)
-        all_embs1 = self.forward_gcn_(diffGraph)
+        all_embs1,_,_ = self.forward_gcn(diffGraph)
         diffGraph1 = self.dataset.getDiffSparseGraph(diffGraph1)
-        all_embs2 = self.forward_gcn_(diffGraph1)
-        # all_embs2 = self.forward_gcn_(self.augGraph2)
-        # # diff_graph1 = self.dataset.getDiffSparseGraph(aug_graph1)
-        # # diff_graph2 = self.dataset.getDiffSparseGraph(aug_graph2)
-        # # all_aug_embs1 = self.forward_gcn(diff_graph1)
-        # # all_aug_embs2 = self.forward_gcn(diff_graph2)
+        all_embs2,_,_ = self.forward_gcn(diffGraph1)
 
         mashup_embs, api_embs = torch.split(all_embs, [self.num_mashups, self.num_apis])
         mashup_embs1, api_embs1 = torch.split(all_embs1, [self.num_mashups, self.num_apis])
@@ -114,10 +111,6 @@ class LightGCN(nn.Module):
         api_embeddings = F.embedding(pos_apis, api_embs)
         neg_embeddings = F.embedding(neg_apis, api_embs)
 
-        # # mashup_mashup_embeddings = F.embedding(mashups, mashup_mashup_embs)
-        # # api_api_embeddings = F.embedding(pos_apis, api_api_embs)
-        # # neg_api_embeddings = F.embedding(neg_apis, api_api_embs)
-
         mashup_embeddings1 = F.embedding(mashups, mashup_embs1)
         api_embeddings1 = F.embedding(pos_apis, api_embs1)
         neg_embeddings1 = F.embedding(neg_apis, api_embs1)
@@ -126,16 +119,9 @@ class LightGCN(nn.Module):
         api_embeddings2 = F.embedding(pos_apis, api_embs2)
         neg_embeddings2 = F.embedding(neg_apis, api_embs2)
 
-
         sup_pos_ratings = inner_product(mashup_embeddings, api_embeddings)
         sup_neg_ratings = inner_product(mashup_embeddings, neg_embeddings)
         loss = torch.mean(torch.nn.functional.softplus(sup_neg_ratings - sup_pos_ratings))
-
-        # sup_pos_ratings_mashup = inner_product(mashup_mashup_embeddings, mashup_mashup_embeddings)
-        # sup_neg_ratings_mashup = inner_product(mashup_mashup_embeddings, neg_api_embeddings)
-        # loss1 = torch.mean(torch.nn.functional.softplus(sup_neg_ratings_mashup - sup_pos_ratings_mashup))
-
-        # loss = loss + 0.5 * loss1
 
         sup_pos_ratings1 = inner_product(mashup_embeddings1, api_embeddings1)
         sup_neg_ratings1 = inner_product(mashup_embeddings1, neg_embeddings1)

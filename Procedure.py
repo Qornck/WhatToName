@@ -46,7 +46,7 @@ def test_one_batch(X):
             'precision':np.array(pre), 
             'ndcg':np.array(ndcg)}
         
-            
+
 def Test(dataset, Recmodel, epoch):
     u_batch_size = args.testbatch
     testDict = dataset.testDict

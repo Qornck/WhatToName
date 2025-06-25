@@ -59,15 +59,15 @@ class Loader(Dataset):
         # train or test
         self.n_mashups = 0
         self.n_apis = 0
-        self.path = "./data/3"
+        self.path = "./data/3mashups"
         train_file = self.path + "/train.txt"
         test_file = self.path + "/test.txt"
-        co_aafile = self.path + "/simplified_api_co_category.txt"
-        co_mmfile = self.path + "/simplified_mashup_co_category.txt"
+        co_aafile = self.path + "/api_co_category.txt"
+        co_mmfile = self.path + "/mashup_co_category.txt"
         trainUniqueUsers, trainItem, trainUser = [], [], []
         testUniqueUsers, testItem, testUser = [], [], []
-        coItem1, coItem2 = [], []
-        coMashup1, coMashup2 = [], []
+        coApi1, coApi2, apiValue = [], [], []
+        coMashup1, coMashup2, mashupValue = [], [], []
 
         self.traindataSize = 0
         self.testDataSize = 0
@@ -112,24 +112,26 @@ class Loader(Dataset):
         with open(co_aafile) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    l = l.strip('\n').split(' ', 1)
-                    coItem1.append(int(l[0]))
-                    coItem2.append(int(l[1]))
-        
-        self.coItem1 = np.array(coItem1)
-        self.coItem2 = np.array(coItem2)
-        # randidx = randint_choice(len(coItem1), 5000, replace=False)
-        # self.coItem1 = self.coItem1[randidx]
-        # self.coItem2 = self.coItem2[randidx]
+                    l = l.strip('\n').split(' ', 2)
+                    coApi1.append(int(l[0]))
+                    coApi2.append(int(l[1]))
+                    apiValue.append(int(l[2]))
+
+        self.coApi1 = np.array(coApi1)
+        self.coApi2 = np.array(coApi2)
+        self.apiValue = np.array(apiValue)
 
         with open(co_mmfile) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    l = l.strip('\n').split(' ', 1)
+                    l = l.strip('\n').split(' ', 2)
                     coMashup1.append(int(l[0]))
                     coMashup2.append(int(l[1]))
-                    coMashup1.append(int(l[1]))
-                    coMashup2.append(int(l[0]))
+                    mashupValue.append(int(l[2]))
+
+        self.coMashup1 = np.array(coMashup1)
+        self.coMashup2 = np.array(coMashup2)
+        self.mashupValue = np.array(mashupValue)
         
         randidx = randint_choice(len(coMashup1), 30000, replace=False)
         self.coMashup1 = np.array(coMashup1)
@@ -146,14 +148,19 @@ class Loader(Dataset):
         print(f"Sparsity : {(self.trainDataSize + self.testDataSize) / self.n_mashups / self.n_apis}")
 
         # (users,items), bipartite graph
-        self.UserItemNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
+        self.MashupApiNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
                                       shape=(self.n_mashups, self.n_apis))
         
-        self.CoItemNet = csr_matrix((np.ones(len(self.coItem1)), (self.coItem1, self.coItem2)),shape=(self.n_apis, self.n_apis))
-        self.CoMashupNet = csr_matrix((np.ones(len(self.coMashup1)), (self.coMashup1, self.coMashup2)),shape=(self.n_mashups, self.n_mashups))
-        self.users_D = np.array(self.UserItemNet.sum(axis=1)).squeeze()
+        self.CoItemNet = csr_matrix((self.apiValue, (self.coApi1, self.coApi2)),
+                                    shape=(self.n_apis, self.n_apis))
+        
+        self.CoMashupNet = csr_matrix((self.mashupValue, (self.coMashup1, self.coMashup2)),
+                                      shape=(self.n_mashups, self.n_mashups))
+        # self.CoItemNet = csr_matrix((np.ones(len(self.coApi1)), (self.coApi1, self.coApi2)),shape=(self.n_apis, self.n_apis))
+        # self.CoMashupNet = csr_matrix((np.ones(len(self.coMashup1)), (self.coMashup1, self.coMashup2)),shape=(self.n_mashups, self.n_mashups))
+        self.users_D = np.array(self.MashupApiNet.sum(axis=1)).squeeze()
         self.users_D[self.users_D == 0.] = 1
-        self.items_D = np.array(self.UserItemNet.sum(axis=0)).squeeze()
+        self.items_D = np.array(self.MashupApiNet.sum(axis=0)).squeeze()
         self.items_D[self.items_D == 0.] = 1.
         # pre-calculate
         self._allPos = self.getUserPosItems(list(range(self.n_mashups)))
@@ -199,13 +206,13 @@ class Loader(Dataset):
                 s = time()
                 adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
                 adj_mat = adj_mat.tolil()
-                R = self.UserItemNet.tolil()
+                R = self.MashupApiNet.tolil()
                 mmR = self.CoMashupNet.tolil()
                 aaR = self.CoItemNet.tolil()
                 adj_mat[:self.n_mashups, self.n_mashups:] = R
                 adj_mat[self.n_mashups:, :self.n_mashups] = R.T
-                # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
-                # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+                adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+                adj_mat[self.n_mashups:, self.n_mashups:] = aaR
                 adj_mat = adj_mat.todok()
                 # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
                 
@@ -240,8 +247,8 @@ class Loader(Dataset):
         aaR = self.CoItemNet.tolil()
         adj_mat[:self.n_mashups, self.n_mashups:] = R
         adj_mat[self.n_mashups:, :self.n_mashups] = R.T
-        # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
-        # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+        adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+        adj_mat[self.n_mashups:, self.n_mashups:] = aaR
         adj_mat = adj_mat.todok()
         # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
@@ -266,8 +273,8 @@ class Loader(Dataset):
         aaR = self.CoItemNet.tolil()
         adj_mat[:self.n_mashups, self.n_mashups:] = R
         adj_mat[self.n_mashups:, :self.n_mashups] = R.T
-        # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
-        # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+        adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+        adj_mat[self.n_mashups:, self.n_mashups:] = aaR
         adj_mat = adj_mat.todok()
         # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
@@ -292,7 +299,6 @@ class Loader(Dataset):
             #     norm_adj = pre_adj_mat
             # except:
             print("generating adjacency matrix")
-            s = time()
             adj_mat = sp.dok_matrix((self.n_apis, self.n_apis), dtype=np.float32)
             adj_mat = adj_mat.tolil()
             R = self.CoItemNet.tolil()
@@ -357,7 +363,7 @@ class Loader(Dataset):
     def getUserPosItems(self, users):
         posItems = []
         for user in users:
-            posItems.append(self.UserItemNet[user].nonzero()[1])
+            posItems.append(self.MashupApiNet[user].nonzero()[1])
         return posItems
     
 

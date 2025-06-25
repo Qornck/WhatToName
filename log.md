@@ -36,3 +36,28 @@ adjacent matrix 删去部分
 
 ### 2025.06.12
 折腾半天似乎又回到最开始了
+
+### 2025.06.25
+tmux 0-2:
+```
+getSparseGraph:
+# adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+# adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+
+getDiffSparseGraph:
+adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+```
+
+tmux 3:
+```
+getSparseGraph:
+adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+
+getDiffSparseGraph:
+adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+```
+
+### 2025.06.26
