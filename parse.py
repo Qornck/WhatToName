@@ -52,6 +52,10 @@ def parse_args():
     parser.add_argument('--reweight', type=bool, default=True, help='assign different weight to different timestep or not')
     parser.add_argument('--diff_lr', type=float,default=0.002,help="the learning rate")
 
+    parser.add_argument('--gamma', type=float, default=-0.45)
+    parser.add_argument('--zeta', type=float, default=1.45)
+    parser.add_argument('--lambda0', type=float, default=1e-4, help='weight for L0 loss on laplacian matrix.')
+
     parser.add_argument('--reserve_nodes1', type=int, default=6, help='the number of reserve nodes for the first diffusion')
     parser.add_argument('--reserve_nodes2', type=int, default=6, help='the number of reserve nodes for the second diffusion')
     return parser.parse_args()

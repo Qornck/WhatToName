@@ -11,7 +11,7 @@ from os.path import join
 # ==============================
 # ==============================
 from parse import parse_args
-from model import LightGCN
+from model import LightGCN, DenoisingNet
 from dataloader import Loader
 import gaussian_diffusion as gd
 from DNN import DNN
@@ -104,6 +104,7 @@ try:
             diffGraph1 = torch.zeros_like(diffGraph1).scatter_(1, top_indices1, 1)
             diffGraph1 = torch.max(diffGraph1, original_graph)
             diffGraph1 = csr_matrix(diffGraph1.cpu().numpy())
+        
         output_information = Procedure.BPR_train_original(dataset, Recmodel, diffGraph, diffGraph1, bpr)
         optimizer.zero_grad()
         optimizer1.zero_grad()

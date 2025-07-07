@@ -5,7 +5,7 @@ from dataloader import Loader, BPRTrainSampler
 from pprint import pprint
 from time import time
 from tqdm import tqdm
-import model
+from model import LightGCN, DenoisingNet
 import multiprocessing
 from sklearn.metrics import roc_auc_score
 from parse import parse_args
@@ -14,7 +14,7 @@ from gaussian_diffusion import GaussianDiffusion as gd
 
 args = parse_args()
 
-def BPR_train_original(dataset, recommend_model, diffGraph, diffGraph1, loss_class, neg_k=1):
+def BPR_train_original(dataset, recommend_model, diffGraph, diffGraph1, loss_class):
     Recmodel = recommend_model
     Recmodel.train()
     bpr: utils.BPRLoss = loss_class
@@ -22,14 +22,17 @@ def BPR_train_original(dataset, recommend_model, diffGraph, diffGraph1, loss_cla
     Sampler = BPRTrainSampler(dataset)
     dataloader = data.DataLoader(Sampler, batch_size=args.bpr_batch, shuffle=True)
     aver_loss = 0.
+    de_loss = 0.
     for batch_i, (batch_users, batch_pos, batch_neg) in enumerate(dataloader):
         batch_users = batch_users.to("cuda")
         batch_pos = batch_pos.to("cuda")
         batch_neg = batch_neg.to("cuda")
-        cri = bpr.stageOne(batch_users, batch_pos, batch_neg, diffGraph, diffGraph1)
+        cri, denoise_loss = bpr.stageOne(batch_users, batch_pos, batch_neg, diffGraph, diffGraph1)
         aver_loss += cri
+        de_loss += denoise_loss
     aver_loss = aver_loss / len(dataloader)
-    return f"loss{aver_loss:.3f}"
+    de_loss = de_loss / len(dataloader)
+    return f"loss{aver_loss:.3f}, denoise_loss{de_loss:.3f}"
     
 def test_one_batch(X):
     sorted_items = X[0].numpy()

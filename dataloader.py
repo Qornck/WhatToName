@@ -195,42 +195,35 @@ class Loader(Dataset):
         return torch.FloatTensor(index, data, torch.Size(coo.shape))
         
     def getSparseGraph(self):
-        print("loading adjacency matrix")
-        if self.Graph is None:
-            try:
-                pre_adj_mat = sp.load_npz(self.path + '/s_pre_adj_mat.npz')
-                print("successfully loaded...")
-                norm_adj = pre_adj_mat
-            except :
-                print("generating adjacency matrix")
-                s = time()
-                adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
-                adj_mat = adj_mat.tolil()
-                R = self.MashupApiNet.tolil()
-                mmR = self.CoMashupNet.tolil()
-                aaR = self.CoItemNet.tolil()
-                adj_mat[:self.n_mashups, self.n_mashups:] = R
-                adj_mat[self.n_mashups:, :self.n_mashups] = R.T
-                adj_mat[:self.n_mashups, :self.n_mashups] = mmR
-                adj_mat[self.n_mashups:, self.n_mashups:] = aaR
-                adj_mat = adj_mat.todok()
-                # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
-                
-                rowsum = np.array(adj_mat.sum(axis=1))
-                d_inv = np.power(rowsum, -0.5).flatten()
-                d_inv[np.isinf(d_inv)] = 0.
-                d_mat = sp.diags(d_inv)
-                
-                norm_adj = d_mat.dot(adj_mat)
-                norm_adj = norm_adj.dot(d_mat)
-                norm_adj = norm_adj.tocsr()
-                end = time()
-                print(f"costing {end-s}s, saved norm_mat...")
-                sp.save_npz(self.path + '/s_pre_adj_mat.npz', norm_adj)
+        print("generating adjacency matrix")
+        s = time()
+        adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
+        adj_mat = adj_mat.tolil()
+        R = self.MashupApiNet.tolil()
+        mmR = self.CoMashupNet.tolil()
+        aaR = self.CoItemNet.tolil()
+        adj_mat[:self.n_mashups, self.n_mashups:] = R
+        adj_mat[self.n_mashups:, :self.n_mashups] = R.T
+        # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+        # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+        adj_mat = adj_mat.todok()
+        # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
+        
+        rowsum = np.array(adj_mat.sum(axis=1))
+        d_inv = np.power(rowsum, -0.5).flatten()
+        d_inv[np.isinf(d_inv)] = 0.
+        d_mat = sp.diags(d_inv)
+        
+        norm_adj = d_mat.dot(adj_mat)
+        norm_adj = norm_adj.dot(d_mat)
+        norm_adj = norm_adj.tocsr()
+        # end = time()
+        # print(f"costing {end-s}s, saved norm_mat...")
+        # sp.save_npz(self.path + '/s_pre_adj_mat.npz', norm_adj)
 
-            self.Graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
-            self.Graph = self.Graph.coalesce().to("cuda")
-            print("don't split the matrix")
+        self.Graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
+        self.Graph = self.Graph.coalesce().to("cuda")
+        print("don't split the matrix")
         return self.Graph
     
     def getAugSparseGraph(self):
@@ -302,8 +295,6 @@ class Loader(Dataset):
             adj_mat = sp.dok_matrix((self.n_apis, self.n_apis), dtype=np.float32)
             adj_mat = adj_mat.tolil()
             R = self.CoItemNet.tolil()
-            # print(R.shape)
-            # print(adj_mat.shape)
             adj_mat[:self.n_apis, :self.n_apis] = R
             adj_mat = adj_mat.todok()
 
