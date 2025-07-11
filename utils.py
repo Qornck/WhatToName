@@ -26,7 +26,7 @@ class BPRLoss:
         self.opt = optim.Adam(recmodel.parameters(), lr=self.lr)
 
     def stageOne(self, users, pos, neg, diffGraph, diffGraph1):
-        bpr_loss, reg_loss, ssl_mashups, ssl_apis, denoise_loss = self.model(users, pos, neg, diffGraph, diffGraph1)
+        bpr_loss, reg_loss, ssl_mashups, ssl_apis = self.model(users, pos, neg, diffGraph, diffGraph1)
         reg_loss = reg_loss*self.weight_decay
         bpr_loss = bpr_loss + reg_loss
 
@@ -37,7 +37,7 @@ class BPRLoss:
         loss.backward()
         self.opt.step()
 
-        return loss.cpu().item(), denoise_loss.cpu().item()
+        return loss.cpu().item()
 
 # ====================Metrics==============================
 # ========================================================

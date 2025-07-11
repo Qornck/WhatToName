@@ -8,6 +8,8 @@ from torch.utils.data import Dataset, DataLoader
 from scipy.sparse import csr_matrix
 import scipy.sparse as sp
 from time import time
+from scipy.sparse import csr_matrix, save_npz
+
 
 def randint_choice(n, size=None, replace=True):
     return np.random.choice(n, size=size, replace=replace)
@@ -63,11 +65,14 @@ class Loader(Dataset):
         train_file = self.path + "/train.txt"
         test_file = self.path + "/test.txt"
         co_aafile = self.path + "/api_co_category.txt"
+        co_aafile1 = self.path + "/co_mashup_api_matrix.npy"
         co_mmfile = self.path + "/mashup_co_category.txt"
+        co_mmfile1 = self.path + "/mashup_co_api.txt"
         trainUniqueUsers, trainItem, trainUser = [], [], []
         testUniqueUsers, testItem, testUser = [], [], []
         coApi1, coApi2, apiValue = [], [], []
         coMashup1, coMashup2, mashupValue = [], [], []
+        coApi_Mashup1, coApi_Mashup2, coApi_MashupValue = [], [], []
 
         self.traindataSize = 0
         self.testDataSize = 0
@@ -121,11 +126,14 @@ class Loader(Dataset):
         self.coApi2 = np.array(coApi2)
         self.apiValue = np.array(apiValue)
 
+        coMashup_Api_Matrix = np.load(co_aafile1, allow_pickle=True)
+        self.coMashupApi = csr_matrix(coMashup_Api_Matrix)
+
         with open(co_mmfile) as f:
             for l in f.readlines():
                 if len(l) > 0:
                     l = l.strip('\n').split(' ', 2)
-                    coMashup1.append(int(l[0]))
+                    coMashup1.append(int(l[0])) 
                     coMashup2.append(int(l[1]))
                     mashupValue.append(int(l[2]))
 
@@ -133,15 +141,22 @@ class Loader(Dataset):
         self.coMashup2 = np.array(coMashup2)
         self.mashupValue = np.array(mashupValue)
         
-        randidx = randint_choice(len(coMashup1), 30000, replace=False)
-        self.coMashup1 = np.array(coMashup1)
-        self.coMashup2 = np.array(coMashup2)
-        # self.coMashup1 = self.coMashup1[randidx]
-        # self.coMashup2 = self.coMashup2[randidx]
+        with open(co_mmfile1) as f:
+            for l in f.readlines():
+                if len(l) > 0:
+                    l = l.strip('\n').split(' ', 2)
+                    coApi_Mashup1.append(int(l[0]))
+                    coApi_Mashup2.append(int(l[1]))
+                    coApi_MashupValue.append(int(l[2]))
+        self.coApi_Mashup1 = np.array(coApi_Mashup1)
+        self.coApi_Mashup2 = np.array(coApi_Mashup2)
+        self.coApi_MashupValue = np.array(coApi_MashupValue)
 
         self.Graph = None
         self.aaGraph = None
+        self.aaGraph1 = None
         self.mmGraph = None
+        self.mmGraph1 = None
         self.DiffGraph = None
         print(f"{self.trainDataSize} interactions for training")
         print(f"{self.testDataSize} interactions for testing")
@@ -151,13 +166,19 @@ class Loader(Dataset):
         self.MashupApiNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
                                       shape=(self.n_mashups, self.n_apis))
         
-        self.CoItemNet = csr_matrix((self.apiValue, (self.coApi1, self.coApi2)),
+        self.coCate_ApiNet = csr_matrix((self.apiValue, (self.coApi1, self.coApi2)),
                                     shape=(self.n_apis, self.n_apis))
         
-        self.CoMashupNet = csr_matrix((self.mashupValue, (self.coMashup1, self.coMashup2)),
+        self.coMashup_ApiNet = csr_matrix(coMashup_Api_Matrix)
+
+        
+        self.coCate_MashupNet = csr_matrix((self.mashupValue, (self.coMashup1, self.coMashup2)),
                                       shape=(self.n_mashups, self.n_mashups))
-        # self.CoItemNet = csr_matrix((np.ones(len(self.coApi1)), (self.coApi1, self.coApi2)),shape=(self.n_apis, self.n_apis))
-        # self.CoMashupNet = csr_matrix((np.ones(len(self.coMashup1)), (self.coMashup1, self.coMashup2)),shape=(self.n_mashups, self.n_mashups))
+        
+        self.coApi_MashupNet = csr_matrix((self.coApi_MashupValue, (self.coApi_Mashup1, self.coApi_Mashup2)),
+                                            shape=(self.n_mashups, self.n_mashups))
+        # self.coCate_ApiNet = csr_matrix((np.ones(len(self.coApi1)), (self.coApi1, self.coApi2)),shape=(self.n_apis, self.n_apis))
+        # self.coCate_MashupNet = csr_matrix((np.ones(len(self.coMashup1)), (self.coMashup1, self.coMashup2)),shape=(self.n_mashups, self.n_mashups))
         self.users_D = np.array(self.MashupApiNet.sum(axis=1)).squeeze()
         self.users_D[self.users_D == 0.] = 1
         self.items_D = np.array(self.MashupApiNet.sum(axis=0)).squeeze()
@@ -200,8 +221,8 @@ class Loader(Dataset):
         adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
         adj_mat = adj_mat.tolil()
         R = self.MashupApiNet.tolil()
-        mmR = self.CoMashupNet.tolil()
-        aaR = self.CoItemNet.tolil()
+        mmR = self.coCate_MashupNet.tolil()
+        aaR = self.coCate_ApiNet.tolil()
         adj_mat[:self.n_mashups, self.n_mashups:] = R
         adj_mat[self.n_mashups:, :self.n_mashups] = R.T
         # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
@@ -236,8 +257,8 @@ class Loader(Dataset):
         adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
         adj_mat = adj_mat.tolil()
         R = temp_adj.tolil()
-        mmR = self.CoMashupNet.tolil()
-        aaR = self.CoItemNet.tolil()
+        mmR = self.coCate_MashupNet.tolil()
+        aaR = self.coCate_ApiNet.tolil()
         adj_mat[:self.n_mashups, self.n_mashups:] = R
         adj_mat[self.n_mashups:, :self.n_mashups] = R.T
         adj_mat[:self.n_mashups, :self.n_mashups] = mmR
@@ -246,7 +267,7 @@ class Loader(Dataset):
         # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
         rowsum = np.array(adj_mat.sum(axis=1))
-        d_inv = np.power(rowsum, -0.5).flatten()
+        d_inv = np.power(rowsum + 1e-8, -0.5).flatten()
         d_inv[np.isinf(d_inv)] = 0.
         d_mat = sp.diags(d_inv)
 
@@ -262,17 +283,17 @@ class Loader(Dataset):
         adj_mat = sp.dok_matrix((self.n_mashups + self.n_apis, self.n_mashups + self.n_apis), dtype=np.float32)
         adj_mat = adj_mat.tolil()
         R = aug_graph.tolil()
-        mmR = self.CoMashupNet.tolil()
-        aaR = self.CoItemNet.tolil()
+        mmR = self.coCate_MashupNet.tolil()
+        aaR = self.coCate_ApiNet.tolil()
         adj_mat[:self.n_mashups, self.n_mashups:] = R
         adj_mat[self.n_mashups:, :self.n_mashups] = R.T
-        adj_mat[:self.n_mashups, :self.n_mashups] = mmR
-        adj_mat[self.n_mashups:, self.n_mashups:] = aaR
+        # adj_mat[:self.n_mashups, :self.n_mashups] = mmR
+        # adj_mat[self.n_mashups:, self.n_mashups:] = aaR
         adj_mat = adj_mat.todok()
         # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
         rowsum = np.array(adj_mat.sum(axis=1))
-        d_inv = np.power(rowsum, -0.5).flatten()
+        d_inv = np.power(rowsum + 1e-8, -0.5).flatten()
         d_inv[np.isinf(d_inv)] = 0.
         d_mat = sp.diags(d_inv)
 
@@ -291,15 +312,15 @@ class Loader(Dataset):
             #     print("successfully loaded aa graph...")
             #     norm_adj = pre_adj_mat
             # except:
-            print("generating adjacency matrix")
+            print("generating api homogenous adjacency matrix")
             adj_mat = sp.dok_matrix((self.n_apis, self.n_apis), dtype=np.float32)
             adj_mat = adj_mat.tolil()
-            R = self.CoItemNet.tolil()
+            R = self.coCate_ApiNet.tolil()
             adj_mat[:self.n_apis, :self.n_apis] = R
             adj_mat = adj_mat.todok()
 
             rowsum = np.array(adj_mat.sum(axis=1))
-            d_inv = np.power(rowsum, -0.5).flatten()
+            d_inv = np.power(rowsum + 1e-8, -0.5).flatten()
             d_inv[np.isinf(d_inv)] = 0.
             d_mat = sp.diags(d_inv)
 
@@ -310,7 +331,26 @@ class Loader(Dataset):
             # sp.save_npz(self.path + '/s_pre_adj_mat_aa.npz', norm_adj)
             self.aaGraph = self._convert_sp_mat_to_sp_tensor(norm_adj)
             self.aaGraph = self.aaGraph.coalesce().to("cuda")
-        return self.aaGraph
+
+            adj_mat = sp.dok_matrix((self.n_apis, self.n_apis), dtype=np.float32)
+            adj_mat = adj_mat.tolil()
+            R = self.coMashup_ApiNet.tolil()
+            adj_mat[:self.n_apis, :self.n_apis] = R
+            adj_mat = adj_mat.todok()
+
+            rowsum = np.array(adj_mat.sum(axis=1))
+            d_inv = np.power(rowsum + 1e-8, -0.5).flatten()
+            d_inv[np.isinf(d_inv)] = 0.
+            d_mat = sp.diags(d_inv)
+
+            norm_adj = d_mat.dot(adj_mat)
+            norm_adj = norm_adj.dot(d_mat)
+            norm_adj = norm_adj.tocsr()
+
+            # sp.save_npz(self.path + '/s_pre_adj_mat_aa.npz', norm_adj)
+            self.aaGraph1 = self._convert_sp_mat_to_sp_tensor(norm_adj)
+            self.aaGraph1 = self.aaGraph1.coalesce().to("cuda")
+        return self.aaGraph, self.aaGraph1
     
     def getSparseGraph_mm(self):
         if self.mmGraph is None:
@@ -319,16 +359,16 @@ class Loader(Dataset):
             #     print("successfully loaded mm graph...")
             #     norm_adj = pre_adj_mat
             # except:
-            print("generating adjacency matrix")
+            print("generating mashup homogenous graph matrix")
             s = time()
             adj_mat = sp.dok_matrix((self.n_mashups, self.n_mashups), dtype=np.float32)
             adj_mat = adj_mat.tolil()
-            R = self.CoMashupNet.tolil()
+            R = self.coCate_MashupNet.tolil()
             adj_mat[:self.n_mashups, :self.n_mashups] = R
             adj_mat = adj_mat.todok()
 
             rowsum = np.array(adj_mat.sum(axis=1))
-            d_inv = np.power(rowsum, -0.5).flatten()
+            d_inv = np.power(rowsum + 1e-8, -0.5).flatten()
             d_inv[np.isinf(d_inv)] = 0.
             d_mat = sp.diags(d_inv)
 
@@ -339,7 +379,26 @@ class Loader(Dataset):
             # sp.save_npz(self.path + '/s_pre_adj_mat_mm.npz', norm_adj)      
             self.mmGraph = self._convert_sp_mat_to_sp_tensor(norm_adj)
             self.mmGraph = self.mmGraph.coalesce().to("cuda")
-        return self.mmGraph          
+
+            adj_mat = sp.dok_matrix((self.n_mashups, self.n_mashups), dtype=np.float32)
+            adj_mat = adj_mat.tolil()
+            R = self.coApi_MashupNet.tolil()
+            adj_mat[:self.n_mashups, :self.n_mashups] = R
+            adj_mat = adj_mat.todok()
+
+            rowsum = np.array(adj_mat.sum(axis=1))
+            d_inv = np.power(rowsum + 1e-8, -0.5).flatten()
+            d_inv[np.isinf(d_inv)] = 0.
+            d_mat = sp.diags(d_inv)
+
+            norm_adj = d_mat.dot(adj_mat)
+            norm_adj = norm_adj.dot(d_mat)
+            norm_adj = norm_adj.tocsr()
+
+            # sp.save_npz(self.path + '/s_pre_adj_mat_mm.npz', norm_adj)      
+            self.mmGraph1 = self._convert_sp_mat_to_sp_tensor(norm_adj)
+            self.mmGraph1 = self.mmGraph.coalesce().to("cuda")
+        return self.mmGraph, self.mmGraph1          
 
     def __build_test(self):
         test_data = {}

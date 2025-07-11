@@ -39,10 +39,10 @@ class LightGCN(nn.Module):
         print('use xavier initilizer')
         self.f = nn.Sigmoid()
         self.Graph = self.dataset.getSparseGraph()
-        self.aaGraph = self.dataset.getSparseGraph_aa()
-        self.mmGraph = self.dataset.getSparseGraph_mm()
-        self.augGraph1 = self.dataset.getAugSparseGraph()
-        self.augGraph2 = self.dataset.getAugSparseGraph()
+        self.aaGraph, self.aaGraph1 = self.dataset.getSparseGraph_aa()
+        self.mmGraph, self.mmGraph1 = self.dataset.getSparseGraph_mm()
+        # self.augGraph1 = self.dataset.getAugSparseGraph()
+        # self.augGraph2 = self.dataset.getAugSparseGraph()
         self.diffGraph1 = None
         self.diffGraph2 = None
         x = torch.cat([self.embedding_mashup.weight, self.embedding_api.weight])
@@ -59,18 +59,18 @@ class LightGCN(nn.Module):
         for layer in range(self.n_layers):
             all_emb = torch.sparse.mm(graph, all_emb)
             mashup_emb = torch.sparse.mm(self.mmGraph, mashup_mashup_emb)
+            mashup1_emb = torch.sparse.mm(self.mmGraph1, mashup_mashup_emb)
             api_emb = torch.sparse.mm(self.aaGraph, api_api_emb)
+            api1_emb = torch.sparse.mm(self.aaGraph1, api_api_emb)
             mashup_emb_o, api_emb_o = torch.split(all_emb, [self.num_mashups, self.num_apis])
-            weighted_mashup_emb = (mashup_emb + mashup_emb_o) / 2
-            weighted_api_emb = (api_emb + api_emb_o) / 2
+            weighted_mashup_emb = (mashup_emb + mashup1_emb + 2 * mashup_emb_o) / 4
+            weighted_api_emb = (api_emb + api1_emb + 2 * api_emb_o) / 4
             all_emb = torch.cat([weighted_mashup_emb, weighted_api_emb])          
             all_embs.append(all_emb)
             mashup_mashup_embs.append(mashup_emb)
             api_api_embs.append(api_emb)
         all_embs = torch.stack(all_embs, dim=1).mean(dim=1)
-        mashup_embs = torch.stack(mashup_mashup_embs, dim=1).mean(dim=1)
-        api_embs = torch.stack(api_api_embs, dim=1).mean(dim=1)
-        return all_embs, mashup_embs, api_embs
+        return all_embs
     
     def denoise_forward_gcn(self, graph):
         all_emb = torch.cat([self.embedding_mashup.weight, self.embedding_api.weight])
@@ -108,7 +108,7 @@ class LightGCN(nn.Module):
         return all_embs
 
     def getUsersRating(self, mashups):
-        all_embs,_,_ = self.forward_gcn(self.Graph)
+        all_embs = self.forward_gcn(self.Graph)
         mashup_embs, api_embs = torch.split(all_embs, [self.num_mashups, self.num_apis])
         mashup_embs = F.embedding(mashups, mashup_embs)
         ratings = torch.matmul(mashup_embs, api_embs.T)
@@ -126,19 +126,20 @@ class LightGCN(nn.Module):
         return ssl_loss
     
     def forward(self, mashups, pos_apis, neg_apis, diffGraph, diffGraph1):
-        all_embs,_,_ = self.forward_gcn(self.Graph)
+        all_embs = self.forward_gcn(self.Graph)
         diffGraph = self.dataset.getDiffSparseGraph(diffGraph)
-        all_embs1,_,_ = self.forward_gcn(diffGraph)
+        all_embs1 = self.forward_gcn(diffGraph)
         diffGraph1 = self.dataset.getDiffSparseGraph(diffGraph1)
-        self.DenoisingNet.set_fea_adj(self.num_mashups + self.num_apis, diffGraph1)
-        with torch.no_grad():
-            diffGraph1 = self.DenoisingNet.generate(all_embs, layer=0)
-        all_embs2,_,_ = self.denoise_forward_gcn(diffGraph1)
+        all_embs2 = self.forward_gcn(diffGraph1)
+        # self.DenoisingNet.set_fea_adj(self.num_mashups + self.num_apis, diffGraph1)
+        # with torch.no_grad():
+        #     diffGraph1 = self.DenoisingNet.generate(all_embs, layer=0)
+        # all_embs2,_,_ = self.denoise_forward_gcn(diffGraph1)
 
-        self.opt.zero_grad()
-        denoise_loss = self.DenoisingNet(mashups, pos_apis, neg_apis, self.args.ssl_temp, self.num_mashups, self.num_apis)
-        denoise_loss.backward()
-        self.opt.step()
+        # self.opt.zero_grad()
+        # denoise_loss = self.DenoisingNet(mashups, pos_apis, neg_apis, self.args.ssl_temp, self.num_mashups, self.num_apis)
+        # denoise_loss.backward()
+        # self.opt.step()
 
         mashup_embs, api_embs = torch.split(all_embs, [self.num_mashups, self.num_apis])
         mashup_embs1, api_embs1 = torch.split(all_embs1, [self.num_mashups, self.num_apis])
@@ -195,7 +196,7 @@ class LightGCN(nn.Module):
         ssl_mashups = self.ssl_loss(mashup_embs1, mashup_embs2, mashups)
         ssl_apis = self.ssl_loss(api_embs1, api_embs2, pos_apis)
 
-        return loss, reg_loss, ssl_mashups, ssl_apis, denoise_loss
+        return loss, reg_loss, ssl_mashups, ssl_apis
 
 class DenoisingNet(nn.Module):
     def __init__(self, features, args):
@@ -396,3 +397,45 @@ class DenoisingNet(nn.Module):
 
         lossl0 = self.lossl0(temperature) * self.args.lambda0
         return bprLoss + regLoss + lossl0
+
+class GraphMAE(nn.Module):
+    def __init__(self, num_users, num_items, embed_dim):
+        super(GraphMAE, self).__init__()
+        self.user_emb = nn.Embedding(num_users, embed_dim)
+        self.item_emb = nn.Embedding(num_items, embed_dim)
+
+        self.encoder = nn.Linear(embed_dim, embed_dim)
+        self.decoder = nn.Bilinear(embed_dim, embed_dim, 1)
+
+    def forward(self):
+        encoded_users = self.encoder(self.user_emb.weight)  # [num_users, dim]
+        encoded_items = self.encoder(self.item_emb.weight)  # [num_items, dim]
+        return encoded_users, encoded_items
+
+    def random_edge_dropout(self, adj, dropout_ratio=0.3):
+        adj = adj.coalesce()
+        values = adj._values()
+        indices = adj._indices()
+
+        num_edges = values.size(0)
+        mask = torch.rand(num_edges, device=values.device) > dropout_ratio
+        kept_indices = indices[:, mask]
+        kept_values = values[mask]
+
+        return torch.sparse.FloatTensor(kept_indices, kept_values, adj.shape), indices[:, ~mask]
+
+    def reconstruction_loss(self, z_user, z_item, masked_edges):
+        u_idx, i_idx = masked_edges
+        scores = (z_user[u_idx] * z_item[i_idx]).sum(dim=1)
+        labels = torch.ones_like(scores)
+        return F.binary_cross_entropy_with_logits(scores, labels)
+
+    @torch.no_grad()
+    def generate_denoised_adj(self, z_user, z_item, threshold=0.5):
+        score_matrix = torch.sigmoid(torch.matmul(z_user, z_item.T))  # [n_user, n_item]
+        keep_mask = score_matrix > threshold
+        row, col = keep_mask.nonzero(as_tuple=True)
+        values = score_matrix[row, col]
+        indices = torch.stack([row, col])
+        shape = (z_user.size(0), z_item.size(0))
+        return torch.sparse.FloatTensor(indices, values, torch.Size(shape))

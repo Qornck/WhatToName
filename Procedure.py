@@ -27,12 +27,11 @@ def BPR_train_original(dataset, recommend_model, diffGraph, diffGraph1, loss_cla
         batch_users = batch_users.to("cuda")
         batch_pos = batch_pos.to("cuda")
         batch_neg = batch_neg.to("cuda")
-        cri, denoise_loss = bpr.stageOne(batch_users, batch_pos, batch_neg, diffGraph, diffGraph1)
+        cri= bpr.stageOne(batch_users, batch_pos, batch_neg, diffGraph, diffGraph1)
         aver_loss += cri
-        de_loss += denoise_loss
     aver_loss = aver_loss / len(dataloader)
     de_loss = de_loss / len(dataloader)
-    return f"loss{aver_loss:.3f}, denoise_loss{de_loss:.3f}"
+    return f"loss{aver_loss:.3f}"
     
 def test_one_batch(X):
     sorted_items = X[0].numpy()

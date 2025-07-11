@@ -114,9 +114,11 @@ try:
         optimizer1.step()
         print(f'EPOCH[{epoch+1}/{args.epochs}] {output_information} diff_loss {diff_loss}')
 finally:
+    recall_10 = best_results['recall'][1]
+    ndcg_10 = best_results['ndcg'][1]
     recall_20 = best_results['recall'][2]
     ndcg_20 = best_results['ndcg'][2]
     recall_40 = best_results['recall'][3]
     ndcg_40 = best_results['ndcg'][3]
-    torch.save(Recmodel.state_dict(), f"./save_model/Recmodel_{recall_20:.4f}_{ndcg_20:.4f}_{recall_40:.4f}_{ndcg_40:.4f}_{args.bpr_batch}_{args.recdim}_{args.layer}_{args.lr}_{args.ssl_temp}_{args.ssl_weight}_{args.mean_type}_{args.reserve_nodes1}_{args.reserve_nodes2}_{args.seed}.pth")
+    torch.save(Recmodel.state_dict(), f"./save_model/Recmodel_{recall_10:.4f}_{ndcg_10:.4f}_{recall_20:.4f}_{ndcg_20:.4f}_{recall_40:.4f}_{ndcg_40:.4f}_{args.bpr_batch}_{args.recdim}_{args.layer}_{args.lr}_{args.ssl_temp}_{args.ssl_weight}_{args.mean_type}_{args.reserve_nodes1}_{args.reserve_nodes2}_{args.seed}.pth")
     cprint(best_results)
