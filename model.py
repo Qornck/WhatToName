@@ -63,8 +63,8 @@ class LightGCN(nn.Module):
             api_emb = torch.sparse.mm(self.aaGraph, api_api_emb)
             api1_emb = torch.sparse.mm(self.aaGraph1, api_api_emb)
             mashup_emb_o, api_emb_o = torch.split(all_emb, [self.num_mashups, self.num_apis])
-            weighted_mashup_emb = (mashup_emb + mashup1_emb + 2 * mashup_emb_o) / 4
-            weighted_api_emb = (api_emb + api1_emb + 2 * api_emb_o) / 4
+            weighted_mashup_emb = (mashup_emb + mashup1_emb + mashup_emb_o) / 3
+            weighted_api_emb = (api_emb + api1_emb + api_emb_o) / 3
             all_emb = torch.cat([weighted_mashup_emb, weighted_api_emb])          
             all_embs.append(all_emb)
             mashup_mashup_embs.append(mashup_emb)

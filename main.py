@@ -120,5 +120,8 @@ finally:
     ndcg_20 = best_results['ndcg'][2]
     recall_40 = best_results['recall'][3]
     ndcg_40 = best_results['ndcg'][3]
-    torch.save(Recmodel.state_dict(), f"./save_model/Recmodel_{recall_10:.4f}_{ndcg_10:.4f}_{recall_20:.4f}_{ndcg_20:.4f}_{recall_40:.4f}_{ndcg_40:.4f}_{args.bpr_batch}_{args.recdim}_{args.layer}_{args.lr}_{args.ssl_temp}_{args.ssl_weight}_{args.mean_type}_{args.reserve_nodes1}_{args.reserve_nodes2}_{args.seed}.pth")
+    # torch.save(Recmodel.state_dict(), f"./save_model/Recmodel_{recall_10:.4f}_{ndcg_10:.4f}_{recall_20:.4f}_{ndcg_20:.4f}_{recall_40:.4f}_{ndcg_40:.4f}_{args.bpr_batch}_{args.recdim}_{args.layer}_{args.lr}_{args.ssl_temp}_{args.ssl_weight}_{args.mean_type}_{args.reserve_nodes1}_{args.reserve_nodes2}_{args.seed}.pth")
+    with open(join("./save_model", f"{args.reserve_nodes1}.txt"), 'a') as f:
+        input_string = f"|{args.reserve_nodes1},{args.reserve_nodes2}|{recall_10:.4f}|{ndcg_10:.4f}|{recall_20:.4f}|{ndcg_20:.4f}|{recall_40:.4f}|{ndcg_40:.4f}|\n"
+        f.write(input_string)
     cprint(best_results)
