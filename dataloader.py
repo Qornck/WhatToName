@@ -397,7 +397,7 @@ class Loader(Dataset):
 
             # sp.save_npz(self.path + '/s_pre_adj_mat_mm.npz', norm_adj)      
             self.mmGraph1 = self._convert_sp_mat_to_sp_tensor(norm_adj)
-            self.mmGraph1 = self.mmGraph.coalesce().to("cuda")
+            self.mmGraph1 = self.mmGraph1.coalesce().to("cuda")
         return self.mmGraph, self.mmGraph1          
 
     def __build_test(self):
